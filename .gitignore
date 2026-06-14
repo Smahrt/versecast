@@ -4,9 +4,10 @@ dist/
 *.log
 .DS_Store
 
-# Generated / downloaded assets — rebuilt by `npm run data:db` / `data:index`
-# and the model downloads; never committed.
-resources/models/
+# Generated / downloaded assets, never committed. The MiniLM embedding model
+# (resources/models/hf-cache, ~23 MB) IS committed so builds need no network for
+# it; only the large ggml speech models (*.bin) are ignored.
+resources/models/*.bin
 resources/embeddings/
 resources/*.db
 resources/*.db-journal

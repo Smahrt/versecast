@@ -10,8 +10,13 @@ import { pipeline, env, type FeatureExtractionPipeline } from '@huggingface/tran
 
 const { cacheDir, modelId } = workerData as { cacheDir: string; modelId: string }
 
+// Offline-only (PRD §10: zero network after install). The model is bundled at
+// `<cacheDir>/<modelId>/...` and loaded as a local model — transformers never
+// contacts HuggingFace, so a packaged app (and CI) needs no network for it.
 env.cacheDir = cacheDir
-// After first download the model loads from the local cache — no network at runtime.
+env.localModelPath = cacheDir
+env.allowLocalModels = true
+env.allowRemoteModels = false
 
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 

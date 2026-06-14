@@ -47,7 +47,9 @@ jobs:
       - name: Build KJV database
         run: npm run data:db # reads the committed resources/data/en_kjv.json
 
-      - name: Build semantic index (downloads the embedding model once)
+      # Embedding model is committed (resources/models/hf-cache) and loaded
+      # offline, so this builds the index with no network.
+      - name: Build semantic index (offline, from the bundled model)
         run: npm run data:index
 
       - name: Stage whisper.cpp speech engine (whisper-server.exe + DLLs)
@@ -55,18 +57,38 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force resources/bin | Out-Null
           $url = "https://github.com/ggml-org/whisper.cpp/releases/download/$env:WHISPER_VERSION/whisper-bin-x64.zip"
-          Invoke-WebRequest $url -OutFile whisper.zip
+          $ok = $false
+          for ($i = 1; $i -le 5; $i++) {
+            try { Invoke-WebRequest $url -OutFile whisper.zip; $ok = $true; break }
+            catch { Write-Warning "whisper download attempt $i failed: $_"; Start-Sleep -Seconds (10 * $i) }
+          }
+          if (-not $ok) { throw "whisper.cpp download failed after 5 attempts" }
           Expand-Archive whisper.zip -DestinationPath whisper-tmp -Force
           $files = 'whisper-server.exe','ggml.dll','ggml-base.dll','ggml-cpu.dll','whisper.dll','SDL2.dll'
           foreach ($f in $files) { Copy-Item "whisper-tmp/Release/$f" resources/bin/ -Force }
           Get-ChildItem resources/bin
 
+      # base.en is 141 MB (> GitHub's 100 MB file limit) so it can't be committed.
+      # Download with retry/backoff to ride out HuggingFace rate limits (429).
+      # Optional: add an HF_TOKEN repo secret (a free HuggingFace read token) and
+      # this uses it — authenticated requests aren't rate-limited.
       - name: Download base.en speech model
         shell: pwsh
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           New-Item -ItemType Directory -Force resources/models | Out-Null
-          Invoke-WebRequest "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin" -OutFile resources/models/ggml-base.en.bin
-          "{0:N0} MB" -f ((Get-Item resources/models/ggml-base.en.bin).Length / 1MB)
+          $url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+          $out = "resources/models/ggml-base.en.bin"
+          $headers = @{}
+          if ($env:HF_TOKEN) { $headers["Authorization"] = "Bearer $env:HF_TOKEN" }
+          $ok = $false
+          for ($i = 1; $i -le 6; $i++) {
+            try { Invoke-WebRequest $url -OutFile $out -Headers $headers; $ok = $true; break }
+            catch { Write-Warning "base.en download attempt $i failed: $_"; Start-Sleep -Seconds (15 * $i) }
+          }
+          if (-not $ok) { throw "base.en download failed after 6 attempts (HuggingFace rate limit?)" }
+          "{0:N0} MB" -f ((Get-Item $out).Length / 1MB)
 
       - name: Stage app-local VC++ runtime DLLs
         shell: pwsh
