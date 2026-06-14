@@ -33,14 +33,19 @@ jobs:
         with:
           node-version: '22'
 
+      # Drop the lockfile so npm resolves the WINDOWS native optional packages
+      # (lightningcss/esbuild/rollup/sharp *-win32-x64-msvc). A lockfile made on
+      # macOS pins mac-only optionals and npm then skips the Windows ones — the
+      # long-standing npm optional-deps cross-platform bug.
       - name: Install workspace dependencies
-        run: npm install
+        shell: bash
+        run: rm -f package-lock.json && npm install
 
       - name: Build UI bundles
         run: npm run build
 
       - name: Build KJV database
-        run: npm run data:db
+        run: npm run data:db # reads the committed resources/data/en_kjv.json
 
       - name: Build semantic index (downloads the embedding model once)
         run: npm run data:index
@@ -75,7 +80,8 @@ jobs:
 
       - name: Install electron app dependencies
         working-directory: electron
-        run: npm install
+        shell: bash
+        run: rm -f package-lock.json && npm install
 
       - name: Package standalone Windows app
         working-directory: electron

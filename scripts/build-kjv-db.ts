@@ -36,7 +36,12 @@ function cleanVerse(text: string): string {
 }
 
 mkdirSync(path.dirname(dbPath), { recursive: true })
-if (existsSync(dbPath)) rmSync(dbPath)
+// Remove the db and any stale WAL/SHM sidecars from a previous run, else a
+// leftover WAL can corrupt the fresh db (SQLITE_IOERR_SHORT_READ).
+for (const suffix of ['', '-wal', '-shm', '-journal']) {
+  const f = dbPath + suffix
+  if (existsSync(f)) rmSync(f)
+}
 
 const db = new Database(dbPath)
 db.pragma('journal_mode = WAL')
