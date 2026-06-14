@@ -7,9 +7,9 @@
   "scripts": {
     "bundle": "npm run build --prefix .. && node build.mjs",
     "start": "npm run bundle && electron .",
-    "dist": "npm run bundle && electron-builder --config electron-builder.yml",
-    "dist:mac": "npm run bundle && electron-builder --config electron-builder.yml --mac",
-    "dist:win": "npm run bundle && electron-builder --config electron-builder.yml --win"
+    "dist": "npm run bundle && electron-builder --config electron-builder.yml --publish never",
+    "dist:mac": "npm run bundle && electron-builder --config electron-builder.yml --mac --publish never",
+    "dist:win": "npm run bundle && electron-builder --config electron-builder.yml --win --publish never"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.5.0",

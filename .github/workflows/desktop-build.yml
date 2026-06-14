@@ -105,11 +105,13 @@ jobs:
         shell: bash
         run: rm -f package-lock.json && npm install
 
+      # No GH_TOKEN here: its presence makes electron-builder assume a GitHub
+      # publish/auto-update target and fail on repo detection. These are
+      # test builds with no auto-update (see publish: never in dist:win).
       - name: Package standalone Windows app
         working-directory: electron
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false' # unsigned test build
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run dist:win
 
       # Upload only the installer to stay under the 500 MB private-repo cap.
