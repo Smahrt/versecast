@@ -1,0 +1,32 @@
+node_modules/
+dist/
+data/
+*.log
+.DS_Store
+
+# Generated / downloaded assets — rebuilt by `npm run data:db` / `data:index`
+# and the model downloads; never committed.
+resources/models/
+resources/embeddings/
+resources/*.db
+resources/*.db-journal
+resources/*.db-wal
+resources/*.db-shm
+
+# Private audio — sermon recordings stay on the machine (privacy guardrail)
+resources/*.wav
+
+# Platform binaries staged at build time (whisper-server, DLLs, VC++ runtime)
+resources/bin/*.exe
+resources/bin/*.dll
+resources/win-runtime/
+
+# Desktop build output (dmg/zip/exe + unpacked apps)
+release/
+
+# ASR fine-tuning: sermon audio, transcripts, models — never commit (privacy)
+asr-finetune/data/
+asr-finetune/models/
+asr-finetune/training/checkpoints/
+asr-finetune/training/adapters/
+asr-finetune/.venv/

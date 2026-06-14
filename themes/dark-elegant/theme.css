@@ -1,0 +1,50 @@
+.theme-dark-elegant {
+  background: radial-gradient(135% 155% at 50% -5%, #1b1b22 0%, #101013 45%, #08080a 100%);
+}
+
+.theme-dark-elegant .verse-text {
+  font-family: 'Lora', serif;
+  font-size: var(--verse-size, 52px);
+  line-height: 1.55;
+  color: #ecebe2;
+  text-wrap: balance;
+}
+
+.theme-dark-elegant .verse-ref {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-family: 'Work Sans', sans-serif;
+  font-size: clamp(14px, 1.25vw, 20px);
+  font-weight: 500;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: #a09e92;
+}
+
+.theme-dark-elegant .verse-ref::before,
+.theme-dark-elegant .verse-ref::after {
+  content: '';
+  width: 44px;
+  height: 1px;
+  background: rgba(165, 198, 148, 0.45);
+}
+
+.theme-dark-elegant .slide-enter {
+  animation: de-fade-up var(--transition-ms, 450ms) ease-out both;
+}
+.theme-dark-elegant .slide-exit {
+  animation: de-fade-out var(--transition-ms, 450ms) ease-in both;
+}
+
+@keyframes de-fade-up {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes de-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.theme-dark-elegant .dots span { background: rgba(236, 235, 226, 0.22); }
+.theme-dark-elegant .dots span.active { background: rgba(236, 235, 226, 0.75); }

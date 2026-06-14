@@ -1,0 +1,65 @@
+/* NOTE: never set `position` on the theme root — it would override the
+   stage's absolute positioning and collapse the page. */
+.theme-ambient-gradient {
+  background: linear-gradient(160deg, #0c1410 0%, #15241b 38%, #1a2c1f 58%, #0a100c 100%);
+}
+
+/* soft glow behind the text + corner drifts */
+.theme-ambient-gradient::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 69vw;
+  height: 69vh;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(141, 178, 122, 0.13), rgba(141, 178, 122, 0) 70%);
+  pointer-events: none;
+}
+.theme-ambient-gradient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(48% 84% at 0% 110%, rgba(86, 128, 108, 0.18), rgba(86, 128, 108, 0) 70%),
+    radial-gradient(40% 71% at 104% -12%, rgba(120, 150, 170, 0.1), rgba(120, 150, 170, 0) 70%);
+  pointer-events: none;
+}
+
+.theme-ambient-gradient .verse-text {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: var(--verse-size, 50px);
+  line-height: 1.6;
+  color: #eaf0e4;
+  text-wrap: balance;
+}
+
+.theme-ambient-gradient .verse-ref {
+  font-family: 'Work Sans', sans-serif;
+  font-size: clamp(13px, 1.2vw, 19px);
+  font-weight: 500;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: #9db592;
+}
+
+.theme-ambient-gradient .slide-enter {
+  animation: ag-cross-fade var(--transition-ms, 600ms) ease-in-out both;
+}
+.theme-ambient-gradient .slide-exit {
+  animation: ag-cross-fade-out var(--transition-ms, 600ms) ease-in-out both;
+}
+
+@keyframes ag-cross-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ag-cross-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.theme-ambient-gradient .dots span { background: rgba(234, 240, 228, 0.22); }
+.theme-ambient-gradient .dots span.active { background: rgba(234, 240, 228, 0.75); }

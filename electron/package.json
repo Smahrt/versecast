@@ -1,0 +1,23 @@
+{
+  "name": "versecast-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VerseCast — offline scripture projection",
+  "main": "main.cjs",
+  "scripts": {
+    "bundle": "npm run build --prefix .. && node build.mjs",
+    "start": "npm run bundle && electron .",
+    "dist": "npm run bundle && electron-builder --config electron-builder.yml",
+    "dist:mac": "npm run bundle && electron-builder --config electron-builder.yml --mac",
+    "dist:win": "npm run bundle && electron-builder --config electron-builder.yml --win"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.5.0",
+    "better-sqlite3": "^12.2.0"
+  },
+  "devDependencies": {
+    "electron": "^36.0.0",
+    "electron-builder": "^26.0.0",
+    "esbuild": "^0.25.0"
+  }
+}

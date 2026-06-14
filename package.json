@@ -1,0 +1,29 @@
+{
+  "name": "versecast",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline-first scripture projection tool — operator console on :3000, live output on :3001",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "apps/console",
+    "apps/output"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,console,output -c green,cyan,magenta \"npm:dev:server\" \"npm:dev:console\" \"npm:dev:output\"",
+    "dev:server": "tsx watch server/src/index.ts",
+    "dev:console": "npm run -w @versecast/console watch",
+    "dev:output": "npm run -w @versecast/output watch",
+    "serve": "tsx server/src/index.ts",
+    "build": "npm run -w @versecast/console build && npm run -w @versecast/output build",
+    "data:db": "tsx scripts/build-kjv-db.ts",
+    "data:index": "tsx scripts/build-embeddings.ts kjv",
+    "test": "node --import tsx --test server/test/*.test.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,67 @@
+/* The bare page on :3001 — no chrome, no controls (PRD §4). */
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+}
+
+/* centered layouts (dark-elegant, light-minimal, ambient-gradient) */
+.layout-centered .slide-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+  padding: 10vh 11vw;
+  text-align: center;
+}
+
+/* lower-third layout (green-screen) positions itself via theme css */
+.layout-lower-third .slide-content {
+  position: absolute;
+  inset: 0;
+}
+
+.dots {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+}
+
+.dots span {
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.dots span.active {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* fallback stage before the first state arrives */
+.stage.disconnected {
+  background: #000;
+}

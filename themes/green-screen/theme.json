@@ -1,0 +1,8 @@
+{
+  "id": "green-screen",
+  "name": "Green Screen (Lower Third)",
+  "fonts": { "verse": "Lora", "reference": "Work Sans" },
+  "background": { "type": "chroma", "color": "#00B140" },
+  "transition": { "enter": "slide-up", "exit": "fade", "ms": 400 },
+  "layout": "lower-third"
+}

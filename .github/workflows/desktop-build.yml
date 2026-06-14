@@ -1,0 +1,94 @@
+name: Windows build
+
+# Builds a FULLY STANDALONE VerseCast Windows app on a native windows-latest
+# runner. Bundles everything needed to run on a clean machine: the server,
+# better-sqlite3 (compiled natively here), onnxruntime (semantic search),
+# the MiniLM embedding model, the KJV db + index, themes, both UIs, the
+# whisper.cpp speech engine (whisper-server.exe + DLLs), the base.en speech
+# model, and app-local VC++ runtime DLLs.
+#
+# Mac is built locally (`npm run dist:mac`) and is intentionally not in CI:
+# macOS runners bill at 10x minutes. This job runs on windows-latest only.
+#
+# Trigger from the Actions tab (workflow_dispatch) or by pushing a v* tag.
+# The single installer artifact (~340 MB with base.en) stays under the
+# 500 MB Free-plan artifact storage — delete old run artifacts (or use a
+# public repo) if you run it many times in a week.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+env:
+  WHISPER_VERSION: v1.8.6
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install workspace dependencies
+        run: npm install
+
+      - name: Build UI bundles
+        run: npm run build
+
+      - name: Build KJV database
+        run: npm run data:db
+
+      - name: Build semantic index (downloads the embedding model once)
+        run: npm run data:index
+
+      - name: Stage whisper.cpp speech engine (whisper-server.exe + DLLs)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force resources/bin | Out-Null
+          $url = "https://github.com/ggml-org/whisper.cpp/releases/download/$env:WHISPER_VERSION/whisper-bin-x64.zip"
+          Invoke-WebRequest $url -OutFile whisper.zip
+          Expand-Archive whisper.zip -DestinationPath whisper-tmp -Force
+          $files = 'whisper-server.exe','ggml.dll','ggml-base.dll','ggml-cpu.dll','whisper.dll','SDL2.dll'
+          foreach ($f in $files) { Copy-Item "whisper-tmp/Release/$f" resources/bin/ -Force }
+          Get-ChildItem resources/bin
+
+      - name: Download base.en speech model
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force resources/models | Out-Null
+          Invoke-WebRequest "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin" -OutFile resources/models/ggml-base.en.bin
+          "{0:N0} MB" -f ((Get-Item resources/models/ggml-base.en.bin).Length / 1MB)
+
+      - name: Stage app-local VC++ runtime DLLs
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force resources/win-runtime | Out-Null
+          foreach ($d in 'vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll') {
+            $src = Join-Path $env:SystemRoot "System32/$d"
+            if (Test-Path $src) { Copy-Item $src resources/win-runtime/ -Force } else { Write-Warning "missing $d" }
+          }
+          Get-ChildItem resources/win-runtime
+
+      - name: Install electron app dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Package standalone Windows app
+        working-directory: electron
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false' # unsigned test build
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist:win
+
+      # Upload only the installer to stay under the 500 MB private-repo cap.
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: versecast-windows-standalone
+          path: electron/release/*-setup.exe
+          if-no-files-found: error
+          retention-days: 7

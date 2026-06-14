@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "versecast-console",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "server/src/index.ts"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "versecast-output",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "server/src/index.ts", "--preview-output"],
+      "port": 3001,
+      "autoPort": true
+    }
+  ]
+}

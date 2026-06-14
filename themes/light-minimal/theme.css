@@ -1,0 +1,50 @@
+.theme-light-minimal {
+  background: #f6f4ee;
+}
+
+.theme-light-minimal .verse-text {
+  font-family: 'Lora', serif;
+  font-size: var(--verse-size, 52px);
+  line-height: 1.55;
+  color: #232220;
+  text-wrap: balance;
+}
+
+.theme-light-minimal .verse-ref {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  font-family: 'Work Sans', sans-serif;
+  font-size: clamp(13px, 1.2vw, 19px);
+  font-weight: 600;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: #8a877c;
+}
+
+.theme-light-minimal .verse-ref::before {
+  content: '';
+  width: 56px;
+  height: 2px;
+  background: #7e9b6e;
+}
+
+.theme-light-minimal .slide-enter {
+  animation: lm-fade var(--transition-ms, 400ms) ease-out both;
+}
+.theme-light-minimal .slide-exit {
+  animation: lm-fade-out var(--transition-ms, 400ms) ease-in both;
+}
+
+@keyframes lm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes lm-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.theme-light-minimal .dots span { background: rgba(35, 34, 32, 0.18); }
+.theme-light-minimal .dots span.active { background: rgba(35, 34, 32, 0.6); }

@@ -1,0 +1,8 @@
+{
+  "id": "dark-elegant",
+  "name": "Dark Elegant",
+  "fonts": { "verse": "Lora", "reference": "Work Sans" },
+  "background": { "type": "css" },
+  "transition": { "enter": "fade-up", "exit": "fade", "ms": 450 },
+  "layout": "centered"
+}

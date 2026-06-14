@@ -1,0 +1,12 @@
+# Sermon audio and transcripts never leave this machine (privacy guardrail)
+data/
+models/
+training/checkpoints/
+training/adapters/
+training/dataset.tar.gz
+*.wav
+*.mp3
+*.m4a
+*.bin
+.venv/
+__pycache__/

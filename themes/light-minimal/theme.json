@@ -1,0 +1,8 @@
+{
+  "id": "light-minimal",
+  "name": "Light Minimal",
+  "fonts": { "verse": "Lora", "reference": "Work Sans" },
+  "background": { "type": "css" },
+  "transition": { "enter": "fade", "exit": "fade", "ms": 400 },
+  "layout": "centered"
+}

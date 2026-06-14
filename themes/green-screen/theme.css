@@ -1,0 +1,74 @@
+/* Chroma-key safe: solid fills only, no transparency (key the green away in OBS). */
+.theme-green-screen {
+  background: #00b140;
+}
+
+.theme-green-screen .lower-third {
+  position: absolute;
+  left: 4.4vw;
+  right: 4.4vw;
+  bottom: 7vh;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.theme-green-screen .verse-ref {
+  display: flex;
+  align-items: center;
+  background: #a5c694;
+  color: #131b0e;
+  padding: 12px 26px;
+  border-radius: 14px 14px 0 0;
+  font-family: 'Work Sans', sans-serif;
+  font-size: clamp(14px, 1.2vw, 19px);
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.theme-green-screen .verse-body {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  background: #101013;
+  border-radius: 0 18px 18px 18px;
+  padding: 34px 44px;
+  max-width: 81vw;
+}
+
+.theme-green-screen .verse-body::before {
+  content: '';
+  width: 5px;
+  align-self: stretch;
+  border-radius: 3px;
+  background: #a5c694;
+  flex: none;
+}
+
+.theme-green-screen .verse-text {
+  font-family: 'Lora', serif;
+  font-size: var(--verse-size, 33px);
+  line-height: 1.5;
+  color: #ecebe2;
+  text-wrap: pretty;
+}
+
+.theme-green-screen .slide-enter {
+  animation: gs-slide-up var(--transition-ms, 400ms) ease-out both;
+}
+.theme-green-screen .slide-exit {
+  animation: gs-fade-out var(--transition-ms, 400ms) ease-in both;
+}
+
+@keyframes gs-slide-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes gs-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Key-safe pagination dots: solid sage on dark tab is not needed — hide on chroma theme */
+.theme-green-screen .dots { display: none; }

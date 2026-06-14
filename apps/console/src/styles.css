@@ -1,0 +1,86 @@
+@import 'tailwindcss';
+
+/* Shared system from the design: bg #0D0D0C · panels #141413 · sage #A5C694 ·
+   live #E0584A · Work Sans UI / Lora scripture */
+@theme {
+  --color-bg: #0d0d0c;
+  --color-panel: #141413;
+  --color-panel2: #161615;
+  --color-panel3: #1b1b19;
+  --color-card: #151514;
+  --color-card-hot: #1a1b17;
+  --color-ink: #f0efe9;
+  --color-ink2: #dcdbd2;
+  --color-soft: #c9c8bf;
+  --color-mut: #a8a79e;
+  --color-dim: #6e6d66;
+  --color-faint: #54534d;
+  --color-ghost: #4a4944;
+  --color-label: #7a7973;
+  --color-sage: #a5c694;
+  --color-sage-soft: #bcd4ae;
+  --color-sage-mut: #a9bd9c;
+  --color-sage-ink: #131b0e;
+  --color-live: #e0584a;
+  --color-live-soft: #e8978b;
+  --font-sans: 'Work Sans', sans-serif;
+  --font-serif: 'Lora', serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+::selection {
+  background: rgba(165, 198, 148, 0.3);
+}
+
+/* thin scrollbars for the booth */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+@keyframes vc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.vc-pulse {
+  animation: vc-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes vc-card-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.vc-card-in {
+  animation: vc-card-in 240ms ease-out both;
+}
+
+@keyframes vc-cursor {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+
+.vc-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  background: rgba(165, 198, 148, 0.6);
+  border-radius: 2px;
+  vertical-align: text-bottom;
+  margin-left: 4px;
+  animation: vc-cursor 1.1s steps(1) infinite;
+}

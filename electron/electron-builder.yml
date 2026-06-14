@@ -1,0 +1,74 @@
+# VerseCast desktop packaging.
+# Models and the KJV db ride along as extraResources under resources/root,
+# which the main process points VERSECAST_ROOT at (see main.cjs).
+#
+#   npm run dist            # current OS
+#   npm run dist:mac        # macOS dmg + zip (arm64)
+#   npm run dist:win        # Windows nsis + portable (x64) — needs Windows/CI
+appId: app.versecast
+productName: VerseCast
+copyright: © 2026 VerseCast
+directories:
+  output: release
+  buildResources: build
+files:
+  - main.cjs
+  - dist/**
+# Heavy, machine-local assets bundled into the app's resources.
+extraResources:
+  - from: ../resources/kjv.db
+    to: root/resources/kjv.db
+  - from: ../resources/embeddings
+    to: root/resources/embeddings
+  - from: ../themes
+    to: root/themes
+  - from: ../apps/console/dist
+    to: root/apps/console/dist
+  - from: ../apps/output/dist
+    to: root/apps/output/dist
+  # Speech models — base (recommended) + tiny (fallback) keep the installer
+  # reasonable; small.en can be dropped into the installed app later.
+  - from: ../resources/models
+    to: root/resources/models
+    filter:
+      - 'ggml-base.en.bin'
+      - 'ggml-tiny.en.bin'
+      - 'hf-cache/**'
+  # Platform whisper-server binary (whisper-server / whisper-server.exe).
+  # On macOS the app also falls back to a Homebrew install if this is empty.
+  - from: ../resources/bin
+    to: root/resources/bin
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
+  identity: null # unsigned test build (right-click → Open on first launch)
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  # App-local VC++ runtime DLLs (copied next to VerseCast.exe) so onnxruntime
+  # and the ggml/whisper DLLs load on a clean Windows image without a separate
+  # VC++ Redistributable install. CI populates resources/win-runtime; the dir
+  # is absent on a macOS build, which never processes win.extraFiles.
+  extraFiles:
+    - from: ../resources/win-runtime
+      to: .
+      filter: ['*.dll']
+
+nsis:
+  oneClick: false
+  perMachine: false # per-user install dir is writable (state.json, imports)
+  allowToChangeInstallationDirectory: true
+  runAfterFinish: true
+  artifactName: ${productName}-${version}-setup.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
