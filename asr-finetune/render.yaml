@@ -13,7 +13,7 @@ services:
     runtime: image
     plan: free
     image:
-      url: docker.io/REPLACE_ME/versecast-correction:latest
+      url: docker.io/kubiat/versecast-correction:latest
     envVars:
       - key: DATABASE_URL # Neon connection string (postgresql://...sslmode=require)
         sync: false
