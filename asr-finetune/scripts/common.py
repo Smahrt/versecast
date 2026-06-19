@@ -7,12 +7,45 @@ DATA = ROOT / "data"
 RAW = DATA / "raw"
 AUDIO16K = DATA / "audio16k"
 SEGMENTS = DATA / "segments"
+# Compressed, web-friendly copies of the segment clips (one per clip), used only
+# when the review app is served remotely (e.g. Render). The canonical 16 kHz WAVs
+# in SEGMENTS stay the source of truth for training — only the bytes differ here,
+# never the clip_path keys (which remain ".wav" everywhere).
+SEGMENTS_WEB = DATA / "segments_web"
 DRAFTS = DATA / "drafts"
 CORRECTED = DATA / "corrected"
 MANIFESTS = DATA / "manifests"
 
 AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wma"}
 VIDEO_EXT = {".mp4", ".mkv"}
+
+# Browser-playable codecs the compressor may emit, in lookup order, with the MIME
+# type send_file must report (guessing the wrong MIME makes <audio> silently fail).
+WEB_AUDIO_MIME = {
+    ".opus": "audio/ogg",
+    ".ogg": "audio/ogg",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+}
+
+
+def web_audio_path(clip_path: str) -> Path | None:
+    """The compressed sibling of a clip under SEGMENTS_WEB, if one exists.
+
+    `clip_path` keeps its canonical ".wav" name (as stored in drafts/journal);
+    we only swap the extension to find the smaller web copy. Returns None when no
+    compressed copy is present (e.g. local dev that never ran 09_compress_clips)."""
+    stem = Path(clip_path).with_suffix("")
+    base = SEGMENTS_WEB.resolve()
+    for ext in WEB_AUDIO_MIME:
+        if ext == ".wav":
+            continue
+        cand = (SEGMENTS_WEB / stem).with_suffix(ext)
+        resolved = cand.resolve()
+        if resolved.is_relative_to(base) and resolved.exists():  # guard path traversal
+            return cand
+    return None
 
 # Canonical 66 book names (kept in sync with shared/src/books-data.json) plus
 # sermon vocabulary — used as the whisper initial_prompt during drafting.

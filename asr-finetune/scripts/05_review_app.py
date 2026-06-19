@@ -17,17 +17,39 @@ on your LAN (no upload to any third party), but only run it on a trusted network
 
 import argparse
 import csv
+import hmac
 import json
+import os
 import socket
 import threading
 import time
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, Response, jsonify, request, send_file
 
-from common import CORRECTED, DRAFTS, SEGMENTS
+from common import CORRECTED, DRAFTS, SEGMENTS, WEB_AUDIO_MIME, web_audio_path
 
 app = Flask(__name__)
+
+# --- access control. Enforced only when the env vars are set; unset → the
+# original local-LAN behavior (no gate, name-based owner check). ---
+REVIEW_PASSWORD = os.environ.get("REVIEW_PASSWORD")  # shared password for all volunteers
+OWNER_TOKEN = os.environ.get("OWNER_TOKEN")  # server-side secret gating bulk-accept
+
+
+@app.before_request
+def _require_password():
+    """Gate every route (including /audio) behind a shared password when the app
+    is exposed publicly. With no password configured it's wide open, as on a LAN."""
+    if not REVIEW_PASSWORD:
+        return None
+    auth = request.authorization
+    if auth and hmac.compare_digest(auth.password or "", REVIEW_PASSWORD):
+        return None
+    return Response(
+        "Authentication required.", 401, {"WWW-Authenticate": 'Basic realm="VerseCast correction"'}
+    )
+
 
 FIELDS = ["clip_path", "text", "status", "has_reference", "reviewer"]
 LEASE_SECONDS = 300  # an abandoned clip returns to the pool after this
@@ -38,6 +60,14 @@ JOURNAL = CORRECTED / "_journal.jsonl"
 _lock = threading.Lock()
 _drafts: list[dict] = []  # immutable once loaded
 _claims: dict[str, tuple[str, float]] = {}  # clip_path -> (reviewer, claimed_at)
+_corrected_cache: dict[str, dict] | None = None  # dropped after every save
+
+# Persistence backend. With DATABASE_URL set (remote deploy, e.g. Render) the
+# corrections live in Postgres — the only durable store on an ephemeral-disk host.
+# Without it, behave exactly as before: local per-sermon CSVs + an append-only
+# JSONL journal. clip_path keys are identical either way, so the local training
+# pipeline (06_build_manifests.py) is unchanged.
+DB_URL = os.environ.get("DATABASE_URL")
 
 
 def load_drafts() -> list[dict]:
@@ -54,7 +84,108 @@ def corrected_path(clip_path: str) -> Path:
     return CORRECTED / f"{clip_path.split('/')[0]}.csv"
 
 
+# ---- persistence: dispatch to Postgres or the local files ----
+
+
 def load_corrected() -> dict[str, dict]:
+    """clip_path -> latest row. Cached; the cache is dropped after each save, and
+    a single worker serializes everything under _lock, so it never goes stale."""
+    global _corrected_cache
+    if _corrected_cache is None:
+        _corrected_cache = _db_load_corrected() if DB_URL else _file_load_corrected()
+    return _corrected_cache
+
+
+def save_row(row: dict) -> None:
+    if DB_URL:
+        _db_save_rows([row])
+    else:
+        _file_save_row(row)
+    _invalidate_corrected()
+
+
+def save_rows_bulk(rows: list[dict]) -> int:
+    """Used by the owner-only bulk-accept tool. Returns the number journaled."""
+    if not rows:
+        return 0
+    if DB_URL:
+        _db_save_rows(rows)
+    else:
+        _file_save_rows_bulk(rows)
+    _invalidate_corrected()
+    return len(rows)
+
+
+def _invalidate_corrected() -> None:
+    global _corrected_cache
+    _corrected_cache = None
+
+
+# ---- Postgres backend (DATABASE_URL set) ----
+
+_conn = None
+_JOURNAL_DDL = """
+CREATE TABLE IF NOT EXISTS journal (
+  id            bigserial PRIMARY KEY,
+  clip_path     text NOT NULL,
+  text          text NOT NULL DEFAULT '',
+  status        text NOT NULL,
+  has_reference text NOT NULL DEFAULT '0',
+  reviewer      text NOT NULL DEFAULT '',
+  ts            double precision NOT NULL
+)"""
+
+
+def _db():
+    """Lazy, self-healing Postgres connection (single worker → one shared conn)."""
+    global _conn
+    import psycopg
+
+    if _conn is None or _conn.closed:
+        _conn = psycopg.connect(DB_URL, autocommit=True)
+        with _conn.cursor() as cur:
+            cur.execute(_JOURNAL_DDL)
+            cur.execute("CREATE INDEX IF NOT EXISTS journal_clip_idx ON journal (clip_path, id)")
+    return _conn
+
+
+def _db_save_rows(rows: list[dict]) -> None:
+    now = time.time()
+    params = [
+        {
+            "clip_path": r["clip_path"],
+            "text": r.get("text", ""),
+            "status": r["status"],
+            "has_reference": r.get("has_reference", "0"),
+            "reviewer": r.get("reviewer", ""),
+            "ts": now,
+        }
+        for r in rows
+    ]
+    with _db().cursor() as cur:
+        cur.executemany(
+            "INSERT INTO journal (clip_path, text, status, has_reference, reviewer, ts) "
+            "VALUES (%(clip_path)s, %(text)s, %(status)s, %(has_reference)s, %(reviewer)s, %(ts)s)",
+            params,
+        )
+
+
+def _db_load_corrected() -> dict[str, dict]:
+    with _db().cursor() as cur:
+        cur.execute(
+            "SELECT DISTINCT ON (clip_path) clip_path, text, status, has_reference, reviewer "
+            "FROM journal ORDER BY clip_path, id DESC"
+        )
+        return {
+            r[0]: {"clip_path": r[0], "text": r[1], "status": r[2], "has_reference": r[3], "reviewer": r[4]}
+            for r in cur.fetchall()
+        }
+
+
+# ---- local-file backend (no DATABASE_URL — the original LAN behavior) ----
+
+
+def _file_load_corrected() -> dict[str, dict]:
     done = {}
     for f in CORRECTED.glob("sermon_*.csv"):
         for row in csv.DictReader(f.open()):
@@ -62,7 +193,7 @@ def load_corrected() -> dict[str, dict]:
     return done
 
 
-def save_row(row: dict) -> None:
+def _file_save_row(row: dict) -> None:
     CORRECTED.mkdir(parents=True, exist_ok=True)
     # 1) append to the durable journal FIRST (the source of truth for recovery)
     with JOURNAL.open("a") as jf:
@@ -83,11 +214,9 @@ def save_row(row: dict) -> None:
     tmp.replace(path)  # atomic — never a torn file mid-write
 
 
-def save_rows_bulk(rows: list[dict]) -> int:
+def _file_save_rows_bulk(rows: list[dict]) -> None:
     """Journal every row, then rewrite each affected sermon CSV once (O(sermons),
-    not O(clips²)). Used by the owner-only bulk-accept tool."""
-    if not rows:
-        return 0
+    not O(clips²))."""
     CORRECTED.mkdir(parents=True, exist_ok=True)
     with JOURNAL.open("a") as jf:
         for r in rows:
@@ -108,7 +237,6 @@ def save_rows_bulk(rows: list[dict]) -> int:
             w.writeheader()
             w.writerows([merged[k] for k in sorted(merged)])
         tmp.replace(path)
-    return len(rows)
 
 
 def bulk_candidates(threshold: float, requester: str) -> list[dict]:
@@ -240,13 +368,22 @@ def save():
     return jsonify({"ok": True})
 
 
-OWNER = "Kubiat"  # only this reviewer may see/use the bulk-accept tool
+OWNER = "Kubiat"  # client-side: whose browser shows the bulk-accept panel (cosmetic)
+
+
+def _owner_ok(reviewer: str) -> bool:
+    """Authorize bulk-accept. In the cloud, require the OWNER_TOKEN header — a
+    typed name is trivially spoofable on a public URL. With no token configured
+    (local LAN), fall back to the original name check so nothing changes."""
+    if OWNER_TOKEN:
+        return hmac.compare_digest(request.headers.get("X-Owner-Token", ""), OWNER_TOKEN)
+    return reviewer.strip() == OWNER
 
 
 @app.get("/api/bulk_preview")
 def bulk_preview():
     reviewer = (request.args.get("reviewer") or "").strip()
-    if reviewer != OWNER:
+    if not _owner_ok(reviewer):
         return jsonify({"allowed": False}), 403
     try:
         thr = float(request.args.get("threshold", "-0.30"))
@@ -280,7 +417,7 @@ def bulk_preview():
 def bulk_accept():
     body = request.get_json() or {}
     reviewer = (body.get("reviewer") or "").strip()
-    if reviewer != OWNER:
+    if not _owner_ok(reviewer):
         return jsonify({"error": "forbidden — bulk accept is restricted"}), 403
     try:
         thr = float(body.get("threshold", -0.30))
@@ -307,6 +444,12 @@ def bulk_accept():
 
 @app.get("/audio/<path:clip_path>")
 def audio(clip_path: str):
+    # Prefer the small web copy (present when deployed via 09_compress_clips);
+    # fall back to the canonical WAV for local use. The MIME must be explicit —
+    # a wrong/guessed type makes <audio> silently refuse to play.
+    web = web_audio_path(clip_path)
+    if web is not None:
+        return send_file(web, mimetype=WEB_AUDIO_MIME.get(web.suffix, "audio/ogg"))
     full = (SEGMENTS / clip_path).resolve()
     if not full.is_relative_to(SEGMENTS.resolve()):
         return "nope", 403
@@ -361,6 +504,7 @@ PAGE = """<!doctype html>
     <div id="bulk" style="display:none; margin-top:1.8rem; background:#1d1d24; border:1px solid #3a3a44; border-radius:8px; padding:14px 16px;">
       <b>Bulk accept the easy tail</b> <span class="meta">— owner only</span>
       <p class="meta">Accept every remaining clip whose draft confidence is at or above the threshold, as-is, without listening. Trades a little accuracy for speed on the clips the model already got right. Reference clips aren't auto-marked — leave the threshold high and hand-review the rest.</p>
+      <p><label>owner token <input id="ownertok" type="password" placeholder="paste OWNER_TOKEN (cloud only)" style="width:240px; font-size:14px; padding:6px; border-radius:6px; border:1px solid #333; background:#14141a; color:#eee;"></label></p>
       <p>confidence ≥
         <input id="thr" type="number" step="0.01" value="-0.25" style="width:84px; font-size:15px; padding:6px; border-radius:6px; border:1px solid #333; background:#14141a; color:#eee;">
         <button class="skip" onclick="bulkPreview()">Preview</button>
@@ -405,11 +549,20 @@ function start() {
   document.getElementById('work').style.display = 'block';
   document.getElementById('me').textContent = me;
   document.getElementById('bulk').style.display = (me === 'Kubiat') ? 'block' : 'none';
+  if (me === 'Kubiat') document.getElementById('ownertok').value = localStorage.getItem('ownertok') || '';
   next();
+}
+// The bulk-accept tool is gated server-side by OWNER_TOKEN when deployed; send it
+// as a header (never in the URL/body, which land in logs). Empty on the LAN.
+function ownerHeaders() {
+  const el = document.getElementById('ownertok');
+  const t = ((el && el.value) || '').trim();
+  if (t) localStorage.setItem('ownertok', t);
+  return t ? { 'X-Owner-Token': t } : {};
 }
 async function bulkPreview() {
   const thr = document.getElementById('thr').value;
-  const r = await fetch('/api/bulk_preview?reviewer=' + encodeURIComponent(me) + '&threshold=' + thr);
+  const r = await fetch('/api/bulk_preview?reviewer=' + encodeURIComponent(me) + '&threshold=' + thr, { headers: ownerHeaders() });
   if (!r.ok) { document.getElementById('bulkcount').textContent = '(not permitted)'; return; }
   const d = await r.json();
   document.getElementById('bulkcount').textContent = d.at_threshold + ' of ' + d.pending + ' pending clips match';
@@ -417,12 +570,12 @@ async function bulkPreview() {
 }
 async function bulkAccept() {
   const thr = document.getElementById('thr').value;
-  const pr = await fetch('/api/bulk_preview?reviewer=' + encodeURIComponent(me) + '&threshold=' + thr);
+  const pr = await fetch('/api/bulk_preview?reviewer=' + encodeURIComponent(me) + '&threshold=' + thr, { headers: ownerHeaders() });
   if (!pr.ok) { alert('Not permitted.'); return; }
   const pd = await pr.json();
   if (!pd.at_threshold) { alert('No pending clips at confidence ≥ ' + thr + '.'); return; }
   if (!confirm('Accept ' + pd.at_threshold + ' clips as-is at confidence ≥ ' + thr + '?\\nThey go into the dataset uncorrected. Recoverable only via the journal.')) return;
-  const r = await fetch('/api/bulk_accept', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const r = await fetch('/api/bulk_accept', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
     body: JSON.stringify({ reviewer: me, threshold: parseFloat(thr) }) });
   const d = await r.json();
   alert('Accepted ' + d.accepted + ' clips as-is.');

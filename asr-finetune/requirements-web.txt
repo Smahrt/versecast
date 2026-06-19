@@ -1,0 +1,5 @@
+# Slim deps for the deployed transcript-correction web app ONLY (scripts/05_review_app.py).
+# NOT the full fine-tuning pipeline — that stack lives in the .venv (see CLAUDE.md §1).
+flask>=3.0
+gunicorn>=21.2
+psycopg[binary]>=3.1

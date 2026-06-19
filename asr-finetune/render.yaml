@@ -1,0 +1,23 @@
+# Render Blueprint — a single free web service for the transcript-correction app.
+#
+# Uses a PRE-BUILT image (runtime: image), not a git-based build: the sermon audio
+# is gitignored, so Render's CI couldn't build a working image from the repo, and
+# building locally keeps the audio off any git remote (privacy guardrail). Build
+# and push the image yourself (see DEPLOY.md), then set image.url below.
+#
+# Corrections persist to an EXTERNAL Postgres. Do NOT use a Render free Postgres
+# here — it is deleted 30 days after creation. Use Neon (durable free tier).
+services:
+  - type: web
+    name: versecast-correction
+    runtime: image
+    plan: free
+    image:
+      url: docker.io/REPLACE_ME/versecast-correction:latest
+    envVars:
+      - key: DATABASE_URL # Neon connection string (postgresql://...sslmode=require)
+        sync: false
+      - key: REVIEW_PASSWORD # shared password volunteers type to get in
+        sync: false
+      - key: OWNER_TOKEN # long random secret; only you paste it to bulk-accept
+        sync: false
